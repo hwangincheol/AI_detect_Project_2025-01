@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사진 탐지</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    .btn.active {
+      background-color: #0d6efd !important;
+      color: white !important;
+      border-color: #0d6efd !important;
+    }
+    body {
+        background-color: #121212;
+        color: white;
+        margin-bottom: 50px;
+    }
+    .container {
+        max-width: 1400px;
+        max-height: 90vh;
+        margin-top: 50px;
+    }
+    #uploadedImage {
+        margin-top: 20px;
+        width: 100%;
+        border-radius: 10px;
+        border: 2px solid #007bff;
+    }
+    #capturedImage {
+        margin-top: 20px;
+        width: 100%;
+        border-radius: 10px;
+        border: 2px solid #007bff;
+    }
+    .col-left, .col-right {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .col-left {
+        padding-right: 20px;
+    }
+    .col-right {
+        padding-left: 20px;
+    }
+    button {
+        width: 100%;
+        margin-top: 20px;
+    }
+    #capturedDiv {
+        display: none;
+    }
+    #detectedDiv {
+        display: none;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-primary">
+  <div class="container-fluid">
+    <a class="navbar-brand mx-auto fs-3 fw-bold" href="#">🌊 부유물 탐지 웹사이트</a>
+  </div>
+</nav>
+
+<div class="container mt-3">
+  <div class="d-flex justify-content-center gap-3">
+    <a href="/photo" class="btn btn-outline-light btn-lg fw-bold" id="photoBtn">
+      📷 사진 탐지
+    </a>
+    <a href="/video" class="btn btn-outline-light btn-lg fw-bold" id="videoBtn">
+      🎬 동영상 탐지
+    </a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-6 col-left">
+      <h2 class="mb-4 fw-bold text-white">📸 사진 업로드</h2>
+      <div class="mt-4">
+        <label for="imageUpload" class="form-label fw-bold text-white">🖼️ 사진 파일 선택</label>
+        <input type="file" class="form-control" id="imageUpload" accept="image/png, image/jpeg">
+      </div>
+    </div>
+    <div class="col-md-6 col-right">
+      <h2 class="mb-4 fw-bold text-white">🔍 탐지 결과</h2>
+      <div class="mt-4">
+        <h4 style="margin-top: 32px;" class="mt-4 fw-bold text-white">탐지된 이미지 :</h4>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 col-left">
+      <div>
+        <div id="imageBox"></div>
+        <div class="button-container mt-3"> <!-- 버튼들을 감싸는 div -->
+          <button class="btn btn-primary fw-bold text-white" id="captureButton">캡처 탐지</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 col-right">
+      <div id="capturedDiv">
+        <img id="capturedImage" src="" alt="캡처된 이미지" />
+        <button class="btn btn-secondary fw-bold text-white" id="downloadButton" style="margin-top: 42px;">다운로드</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const currentPath = window.location.pathname;
+
+  if (currentPath === "/photo") {
+      document.getElementById("photoBtn").classList.add("active");
+  } else if (currentPath === "/video") {
+      document.getElementById("videoBtn").classList.add("active");
+  }
+
+  // 이미지 업로드 처리
+  $("#imageUpload").on("change", function (event) {
+    $("#imageBox").html("");    // 업로드된 이미지 삭제
+    $("#capturedImage").attr("src", "");  // 캡처된 이미지 초기화
+    $("#capturedDiv").hide();  // 캡처된 이미지 영역 숨기기
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 파일 타입 확인 (PNG, JPEG만 허용)
+    const allowedTypes = ["image/png", "image/jpeg"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("❌ PNG 또는 JPEG 파일만 업로드 가능합니다.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      // 이미지 파일이 정상적으로 로드되었을 때 표시
+      $("#imageBox").html('<img id="uploadedImage" src="' + e.target.result + '" />');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // 캡처 버튼 클릭 시 서버로 전송
+  $("#captureButton").on("click", function () {
+    const imageFile = $("#imageUpload")[0].files[0];
+    if (!imageFile) {
+      alert("❌ 먼저 이미지를 업로드해주세요.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    formData.append("message", "image capture");  // message 값을 명시적으로 추가
+
+    // 서버로 이미지 전송 (REST API)
+    fetch('http://localhost:80/java_service', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('서버 응답:', data);
+      if (data && data.image) {
+        // 서버에서 받은 이미지를 화면에 표시
+        $("#capturedImage").attr("src", "data:image/png;base64," + data.image);
+        $("#capturedDiv").show();
+      } else {
+        alert("이미지 처리에 실패했습니다.");
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert("서버와의 연결에 문제가 발생했습니다.");
+    });
+  });
+
+  // 다운로드 버튼 클릭 시
+  $("#downloadButton").on("click", function() {
+    const dataURL = $("#capturedImage").attr("src");
+    if (!dataURL) return;
+
+    if (confirm("이미지를 다운로드하시겠습니까?")) {
+        const link = document.createElement("a");
+        link.href = dataURL;
+        link.download = "download_image.png";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  });
+
+</script>
+
+</body>
+</html>

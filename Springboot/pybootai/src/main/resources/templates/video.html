@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>동영상 탐지</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    .btn.active {
+      background-color: #0d6efd !important;
+      color: white !important;
+      border-color: #0d6efd !important;
+    }
+    body {
+        background-color: #121212;
+        color: white;
+        margin-bottom: 50px;
+    }
+    .container {
+        max-width: 1400px;
+        max-height: 90vh;
+        margin-top: 50px;
+    }
+    video {
+        margin-top: 20px;
+        width: 100%;
+        border-radius: 10px;
+        border: 2px solid #007bff;
+    }
+    #capturedImage {
+        margin-top: 20px;
+        max-width: 100%;
+        border-radius: 10px;
+        border: 2px solid #007bff;
+    }
+    .col-left, .col-right {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .col-left {
+        padding-right: 20px;
+    }
+    .col-right {
+        padding-left: 20px;
+    }
+    button {
+        width: 100%;
+        margin-top: 20px;
+    }
+    #capturedDiv {
+        display: none;
+    }
+    .button-container {
+      display: flex;
+      justify-content: space-between;  /* 버튼들 사이에 공간을 균등하게 배치 */
+      gap: 10px;  /* 버튼 사이 간격 */
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-primary">
+  <div class="container-fluid">
+    <a class="navbar-brand mx-auto fs-3 fw-bold" href="#">🌊 부유물 탐지 웹사이트</a>
+  </div>
+</nav>
+<!-- 탐지 모드 선택 버튼 -->
+<div class="container mt-3">
+  <div class="d-flex justify-content-center gap-3">
+    <a href="/photo" class="btn btn-outline-light btn-lg fw-bold" id="photoBtn">
+      📷 사진 탐지
+    </a>
+    <a href="/video" class="btn btn-outline-light btn-lg fw-bold" id="videoBtn">
+      🎬 동영상 탐지
+    </a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-6 col-left">
+      <h2 class="mb-4 fw-bold text-white">🎬 동영상 플레이어</h2>
+      <div class="mt-4">
+        <label for="videoUpload" class="form-label fw-bold text-white">🎥 동영상 파일 선택</label>
+        <input type="file" class="form-control" id="videoUpload" accept="video/mp4, video/webm, video/ogg">
+      </div>
+    </div>
+    <div class="col-md-6 col-right">
+      <h2 class="mb-4 fw-bold text-white">🔍 탐지 결과</h2>
+      <div class="mt-4">
+        <h4 style="margin-top: 32px;" class="mt-4 fw-bold text-white">탐지된 이미지 :</h4>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 col-left">
+      <div>
+        <video id="videoPlayer" controls></video>
+        <div class="button-container mt-3"> <!-- 버튼들을 감싸는 div -->
+          <button class="btn btn-primary fw-bold text-white" id="captureButton">캡처 탐지</button>
+          <button class="btn btn-success fw-bold text-white" id="playButton">동영상 탐지</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 col-right">
+      <div id="capturedDiv">
+        <img id="capturedImage" src="" alt="캡처된 이미지" />
+        <button class="btn btn-secondary fw-bold text-white" id="downloadButton" style="margin-top: 42px;">다운로드</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<canvas id="canvas" style="display: none;"></canvas>
+
+<script>
+  const currentPath = window.location.pathname;
+
+  if (currentPath === "/photo") {
+      document.getElementById("photoBtn").classList.add("active");
+  } else if (currentPath === "/video") {
+      document.getElementById("videoBtn").classList.add("active");
+  }
+
+  let intervalId;  // 동영상처럼 보기 버튼을 위한 인터벌 ID
+
+  $("#videoUpload").on("change", function (event) {
+    $("#videoPlayer")[0].src = "";  // 새 동영상 로드 전 이전 동영상 초기화
+    $("#capturedImage").attr("src", "");  // 캡처된 이미지 초기화
+    $("#capturedDiv").hide();  // 캡처된 이미지 영역 숨기기
+    clearInterval(intervalId); // 이전에 실행 중인 캡처 간격을 중지
+
+    const file = event.target.files[0];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+
+    const allowedExtensions = ["mp4", "webm", "ogg"];
+    if (!allowedExtensions.includes(fileExtension)) {
+        alert("❌ 지원되지 않는 파일 형식입니다! (MP4, WebM, Ogg만 가능)");
+        $(this).val("");
+        return;
+    }
+
+    const videoURL = URL.createObjectURL(file);
+    $("#videoPlayer").attr("src", videoURL);
+
+    $("#videoPlayer")[0].play().catch(function (error) {
+        alert("❌ 동영상을 재생할 수 없습니다.");
+        $("#videoPlayer")[0].src = "";  // 새 동영상 로드 전 이전 동영상 초기화
+        $("#capturedImage").attr("src", "");  // 캡처된 이미지 초기화
+        $("#capturedDiv").hide();  // 캡처된 이미지 영역 숨기기
+        clearInterval(intervalId); // 이전에 실행 중인 캡처 간격을 중지
+    });
+  });
+
+  $("#captureButton").on("click", function() {
+    clearInterval(intervalId);
+    const video = document.getElementById("videoPlayer");
+
+    if (!video.src || video.src === window.location.href) {
+        alert("❌ 동영상을 먼저 선택해주세요!");
+        return;
+    }
+
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    // 비디오의 크기 대비 캔버스 크기 조정 (해상도 절반으로 축소)
+    canvas.width = video.videoWidth / 2;
+    canvas.height = video.videoHeight / 2;
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Blob 형태로 캡처된 이미지 생성
+    canvas.toBlob(function(blob) {
+        var formData = new FormData();
+        formData.append("message", "image capture");
+
+        // 이미지를 JPEG 포맷으로 압축하여 파일 전송 (품질: 0.7)
+        formData.append("file", blob, "captured-image.jpg");
+
+        fetch('http://localhost:80/java_service', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('서버 응답:', data);
+
+            // 예시: 서버 응답 처리
+            if (data && data.image) {
+                // 서버에서 받은 이미지를 화면에 표시
+                $("#capturedImage").attr("src", "data:image/png;base64," + data.image);
+                $("#capturedDiv").show();
+            } else {
+                alert("이미지 처리에 실패했습니다.");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("서버와의 연결에 문제가 발생했습니다.");
+        });
+    }, "image/jpeg", 0.7);  // JPEG 형식으로 압축 (품질: 70%)
+  });
+
+  // 동영상처럼 보기 버튼 클릭 시 (1초마다 캡처)
+  $("#playButton").on("click", function() {
+    const video = document.getElementById("videoPlayer");
+
+    if (!video.src || video.src === window.location.href) {
+        alert("❌ 동영상을 먼저 선택해주세요!");
+        return;
+    }
+
+    // 1초마다 캡처
+    intervalId = setInterval(function() {
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+
+        // 캡처할 해상도를 절반으로 줄여서 성능 개선
+        canvas.width = video.videoWidth / 2;
+        canvas.height = video.videoHeight / 2;
+
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Blob 형태로 캡처된 이미지 생성
+        canvas.toBlob(function(blob) {
+            var formData = new FormData();
+            formData.append("message", "image capture");
+
+            // 이미지를 JPEG 형식으로 압축하여 전송 (품질: 0.7)
+            formData.append("file", blob, "captured-image.jpg");
+
+            fetch('http://localhost:80/java_service', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('서버 응답:', data);
+
+                // 예시: 서버 응답 처리
+                if (data && data.image) {
+                    $("#capturedImage").attr("src", "data:image/png;base64," + data.image);
+                    $("#capturedDiv").show();
+                } else {
+                    alert("이미지 처리에 실패했습니다.");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("서버와의 연결에 문제가 발생했습니다.");
+            });
+        }, "image/jpeg", 0.7);  // JPEG 형식으로 압축 (품질: 70%)
+    }, 1000);  // 1초마다 실행
+  });
+
+  // 다운로드 버튼 클릭 시
+  $("#downloadButton").on("click", function() {
+    const dataURL = $("#capturedImage").attr("src");
+    if (!dataURL) return;
+
+    if (confirm("이미지를 다운로드하시겠습니까?")) {
+        const link = document.createElement("a");
+        link.href = dataURL;
+        link.download = "download_image.png";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  });
+
+  // 동영상이 끝나면 자동으로 캡처가 멈추도록 하기
+  $("#videoPlayer").on("ended", function() {
+    clearInterval(intervalId);
+  });
+</script>
+
+</body>
+</html>
