@@ -9,9 +9,9 @@ import cv2
 
 # Roboflow 모델 불러오기
 from roboflow import Roboflow
-rf = Roboflow(api_key="a6vIn9DhwPSJjaW2JAqG")
-project = rf.workspace("aiproject-rqjzf").project("aiproject-ryolj")
-model = project.version(2).model
+rf = Roboflow(api_key="***")
+project = rf.workspace("***").project("***")
+model = project.version(*).model
 
 app = FastAPI()
 
