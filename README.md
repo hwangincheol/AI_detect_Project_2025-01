@@ -1,4 +1,4 @@
-# AI_detect_Project_2025-01 (개인 프로젝트)
+# AI 부유물 탐지 웹 사이트 제작 (개인 프로젝트)
 AI 부유물 탐지 웹 사이트 제작
 
 ![슬라이드1](https://github.com/user-attachments/assets/53ae297f-ecc7-4069-abdb-2ffca9a70636)
